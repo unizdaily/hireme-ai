@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HireMe.ai — CV Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #fff5f7;
+    --surface:   #ffffff;
+    --border:    #f5c6d5;
+    --border2:   #fad4e0;
+    --pink:      #e8819a;
+    --pink-deep: #d4607c;
+    --pink-pale: #fde8ee;
+    --pink-soft: #f9d0dc;
+    --rose:      #c94f6e;
+    --blush:     #f7c5d3;
+    --green:     #7dbf99;
+    --green-bg:  #eef7f2;
+    --red:       #e07a8a;
+    --red-bg:    #fdeef0;
+    --blue:      #5b8dee;
+    --blue-bg:   #eef3fd;
+    --text:      #3d2535;
+    --text2:     #6b4257;
+    --muted:     #b07a90;
+    --dim:       #d4aab8;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Jost',sans-serif; font-weight:400; min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0; background: radial-gradient(ellipse 80% 60% at 10% 0%,rgba(255,182,203,.22) 0%,transparent 60%), radial-gradient(ellipse 60% 50% at 90% 100%,rgba(255,192,203,.18) 0%,transparent 60%); pointer-events:none; z-index:0; }
+
+  .petal { position:fixed; border-radius:50% 0 50% 0; opacity:.18; pointer-events:none; z-index:0; animation:drift linear infinite; }
+  .petal:nth-child(1){width:18px;height:18px;background:#f9a8bc;top:10%;left:8%;animation-duration:18s}
+  .petal:nth-child(2){width:12px;height:12px;background:#f4c2ce;top:30%;left:92%;animation-duration:22s;animation-delay:-6s}
+  .petal:nth-child(3){width:22px;height:22px;background:#fbbcca;top:60%;left:5%;animation-duration:16s;animation-delay:-3s}
+  .petal:nth-child(4){width:10px;height:10px;background:#f9d0dc;top:80%;left:88%;animation-duration:20s;animation-delay:-10s}
+  @keyframes drift { 0%{transform:translateY(0) rotate(0deg);opacity:.18} 50%{opacity:.10} 100%{transform:translateY(-30px) rotate(180deg);opacity:.18} }
+
+  .wrap { position:relative; z-index:1; max-width:1120px; margin:0 auto; padding:44px 28px 100px; }
+
+  header { text-align:center; margin-bottom:52px; animation:fadeDown .7s ease both; }
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
+  .monogram { display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; background:linear-gradient(135deg,#f9a8bc,#e8819a); border-radius:50%; font-family:'Playfair Display',serif; font-size:22px; font-weight:700; color:white; margin-bottom:16px; box-shadow:0 8px 24px rgba(232,129,154,.35); }
+  header h1 { font-family:'Playfair Display',serif; font-size:38px; font-weight:700; color:var(--text); letter-spacing:-.5px; }
+  header h1 em { font-style:italic; color:var(--pink); }
+  header p { font-size:13px; color:var(--muted); letter-spacing:2.5px; text-transform:uppercase; margin-top:10px; font-weight:500; }
+  .tag { display:inline-flex; align-items:center; gap:6px; background:var(--green-bg); border:1px solid rgba(125,191,153,.4); color:var(--green); font-size:10px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; padding:5px 14px; border-radius:20px; margin-top:14px; }
+  .tag::before { content:''; width:6px; height:6px; background:var(--green); border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+  @media(max-width:740px){ .grid{grid-template-columns:1fr} header h1{font-size:28px} }
+
+  .panel { background:var(--surface); border:1.5px solid var(--border2); border-radius:20px; overflow:hidden; box-shadow:0 4px 24px rgba(232,129,154,.08); animation:fadeUp .6s ease both; }
+  .panel:nth-child(2){animation-delay:.1s}
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+  .panel-header { padding:15px 22px; border-bottom:1.5px solid var(--border2); display:flex; align-items:center; gap:10px; background:linear-gradient(135deg,#fff8fa,#fff5f7); flex-wrap:wrap; }
+  .panel-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .panel-label { font-size:10px; font-weight:600; letter-spacing:2.5px; text-transform:uppercase; color:var(--muted); }
+
+  textarea { width:100%; background:transparent; border:none; outline:none; color:var(--text); font-family:'Jost',sans-serif; font-size:13px; font-weight:300; line-height:1.75; resize:none; padding:22px 24px; min-height:340px; }
+  textarea::placeholder { color:var(--dim); font-style:italic; }
+
+  .btn-row { padding:15px 22px; border-top:1.5px solid var(--border2); display:flex; gap:10px; flex-wrap:wrap; background:linear-gradient(135deg,#fff8fa,#fff5f7); }
+
+  .btn { font-family:'Jost',sans-serif; font-size:12px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; border:none; border-radius:50px; padding:10px 22px; cursor:pointer; transition:all .25s; display:inline-flex; align-items:center; gap:7px; }
+  .btn-primary { background:linear-gradient(135deg,#f4859d,#e8819a); color:white; box-shadow:0 4px 14px rgba(232,129,154,.35); }
+  .btn-primary:hover:not(:disabled) { background:linear-gradient(135deg,#e8819a,#d4607c); transform:translateY(-2px); box-shadow:0 8px 22px rgba(232,129,154,.45); }
+  .btn-primary:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+  .btn-ghost { background:transparent; color:var(--muted); border:1.5px solid var(--border); }
+  .btn-ghost:hover { color:var(--pink); border-color:var(--pink-soft); background:var(--pink-pale); }
+  .btn-green { background:var(--green-bg); color:var(--green); border:1.5px solid rgba(125,191,153,.4); }
+  .btn-green:hover:not(:disabled) { background:rgba(125,191,153,.2); transform:translateY(-1px); }
+  .btn-green:disabled { opacity:.35; cursor:not-allowed; }
+  .btn-blue { background:var(--blue-bg); color:var(--blue); border:1.5px solid rgba(91,141,238,.3); }
+  .btn-blue:hover:not(:disabled) { background:rgba(91,141,238,.15); transform:translateY(-1px); }
+  .btn-blue:disabled { opacity:.35; cursor:not-allowed; }
+  .btn-rose { background:var(--pink-pale); color:var(--pink-deep); border:1.5px solid var(--blush); }
+  .btn-rose:hover:not(:disabled) { background:var(--pink-soft); transform:translateY(-1px); }
+  .btn-rose:disabled { opacity:.35; cursor:not-allowed; }
+
+  .status { padding:11px 22px; font-size:11px; color:var(--muted); border-top:1.5px solid var(--border2); min-height:38px; display:flex; align-items:center; gap:8px; font-style:italic; background:linear-gradient(135deg,#fff8fa,#fff5f7); }
+
+  .spinner { display:none; width:14px; height:14px; border:2px solid rgba(255,255,255,.35); border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* filename badge */
+  .filename-badge { display:none; align-items:center; gap:8px; padding:10px 22px; border-top:1.5px solid var(--border2); background:linear-gradient(135deg,#fff8fa,#fff5f7); font-size:11px; color:var(--muted); }
+  .filename-badge.visible { display:flex; }
+  .filename-tag { background:var(--pink-pale); color:var(--pink-deep); border:1px solid var(--blush); padding:3px 10px; border-radius:5px; font-size:10px; font-weight:600; font-family:monospace; letter-spacing:.3px; }
+
+  /* analysis */
+  .analysis-body { padding:22px 24px; min-height:200px; font-size:12px; color:var(--muted); line-height:1.8; font-style:italic; }
+  .score-row { padding:14px 22px; border-top:1.5px solid var(--border2); display:none; align-items:center; gap:14px; background:linear-gradient(135deg,#fff8fa,#fff5f7); }
+  .score-label { font-size:10px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+  .score-track { flex:1; height:5px; background:var(--blush); border-radius:3px; overflow:hidden; }
+  .score-fill { height:100%; background:linear-gradient(90deg,#f4859d,#7dbf99); border-radius:3px; width:0%; transition:width 1.2s cubic-bezier(.4,0,.2,1); }
+  .score-num { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; color:var(--pink-deep); min-width:48px; text-align:right; }
+  .chips-area { padding:14px 22px; border-top:1.5px solid var(--border2); display:none; flex-wrap:wrap; gap:6px; background:linear-gradient(135deg,#fff8fa,#fff5f7); }
+  .chips-title { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--dim); width:100%; margin-bottom:6px; }
+  .chip { font-size:10px; font-weight:500; padding:3px 12px; border-radius:20px; font-family:'Jost',sans-serif; }
+  .chip-matched { background:var(--green-bg); color:var(--green); border:1px solid rgba(125,191,153,.35); }
+  .chip-missing { background:var(--red-bg); color:var(--red); border:1px solid rgba(224,122,138,.3); }
+
+  /* output */
+  .output-panel { grid-column:1/-1; display:none; animation:fadeUp .5s ease both; }
+  .output-panel.visible { display:block; }
+
+  /* cover letter */
+  .letter-body { padding:40px 48px; max-height:520px; overflow-y:auto; font-family:'Jost',sans-serif; font-size:13px; line-height:2; color:var(--text); white-space:pre-wrap; font-weight:300; }
+  .letter-body::-webkit-scrollbar{width:4px} .letter-body::-webkit-scrollbar-track{background:transparent} .letter-body::-webkit-scrollbar-thumb{background:var(--blush);border-radius:2px}
+  .cv-body { padding:40px 48px; max-height:720px; overflow-y:auto; font-family:'Jost',sans-serif; font-size:12.5px; line-height:1.85; color:var(--text); }
+  .cv-body::-webkit-scrollbar{width:4px} .cv-body::-webkit-scrollbar-track{background:transparent} .cv-body::-webkit-scrollbar-thumb{background:var(--blush);border-radius:2px}
+  .cv-name { font-family:'Playfair Display',serif; font-size:42px; font-weight:700; color:var(--text); }
+  .cv-contact { font-size:11px; color:var(--muted); margin-bottom:24px; font-weight:300; }
+  .cv-section { font-family:'Playfair Display',serif; font-size:11px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:var(--pink); border-bottom:1.5px solid var(--blush); padding-bottom:5px; margin:24px 0 12px; }
+  .cv-job-title { font-weight:600; font-size:13px; color:var(--text); margin-top:16px; }
+  .cv-meta { font-size:11px; color:var(--muted); margin-bottom:7px; font-weight:300; }
+  .cv-bullet { padding-left:16px; position:relative; font-size:12px; color:var(--text2); margin-bottom:4px; font-weight:300; }
+  .cv-bullet::before { content:'·'; position:absolute; left:4px; color:var(--pink); font-size:16px; line-height:1.4; }
+  .cv-skill-row { font-size:12px; margin-bottom:5px; color:var(--text2); font-weight:300; }
+  .cv-skill-row strong { color:var(--text); font-weight:600; }
+
+  .download-section { padding:16px 22px; border-top:1.5px solid var(--border2); background:linear-gradient(135deg,#fff8fa,#fff5f7); }
+  .download-label { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  .download-buttons { display:flex; gap:10px; flex-wrap:wrap; }
+
+  @keyframes blush { 0%{background:rgba(249,208,220,.4)} 100%{background:transparent} }
+  .blushing { animation:blush .7s ease; }
+
+  .tips { margin-top:24px; padding:20px 24px; background:white; border:1.5px solid var(--border2); border-radius:16px; font-size:12px; color:var(--muted); line-height:1.85; font-weight:300; box-shadow:0 2px 12px rgba(232,129,154,.06); }
+  .tips strong { color:var(--pink-deep); font-weight:600; }
+  .shortcut { display:inline-block; background:var(--pink-pale); border:1px solid var(--blush); color:var(--pink-deep); font-size:10px; font-weight:600; padding:2px 8px; border-radius:5px; }
+</style>
+</head>
+<body>
+<div class="petal"></div><div class="petal"></div><div class="petal"></div><div class="petal"></div>
+<div class="wrap">
+  <header>
+    <div class="monogram">H</div>
+    <h1>Hire<em>Me.ai</em></h1>
+    <p>ATS CV &amp; Cover Letter Generator</p>
+    <div><span class="tag">AI Powered</span></div>
+  </header>
+
+  <div class="grid">
+    <!-- Input -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-dot" style="background:#f4859d"></div>
+        <span class="panel-label">Job Posting</span>
+      </div>
+      <textarea id="jobInput" placeholder="Paste the full job posting here...&#10;&#10;Include the title, requirements, responsibilities, and keywords. The more detail, the better the match."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="generateBtn" onclick="generate()">
+          <div class="spinner" id="spinner"></div>
+          <span id="btnLabel">Generate CV</span>
+        </button>
+        <button class="btn btn-rose" id="coverLetterBtn" onclick="generateCoverLetter()" disabled>
+          <div class="spinner" id="clSpinner"></div>
+          <span id="clBtnLabel">+ Cover Letter</span>
+        </button>
+        <button class="btn btn-ghost" onclick="document.getElementById('jobInput').value=''">Clear</button>
+      </div>
+      <div class="status" id="status">Ready — paste a job posting and click Generate.</div>
+    </div>
+
+    <!-- Analysis -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-dot" style="background:#c9a0dc"></div>
+        <span class="panel-label">ATS Analysis</span>
+      </div>
+      <div class="analysis-body" id="analysisBox">
+        Your keyword analysis will appear here after generation.<br><br>
+        🟢 Green = matched in your CV<br>
+        🔴 Red = honest gaps in your background
+      </div>
+      <div class="score-row" id="scoreRow">
+        <span class="score-label">ATS Match</span>
+        <div class="score-track"><div class="score-fill" id="scoreBar"></div></div>
+        <div class="score-num" id="scoreNum">—</div>
+      </div>
+      <div class="chips-area" id="chipsArea"></div>
+    </div>
+
+    <!-- Output -->
+    <div class="panel output-panel" id="outputPanel">
+      <div class="panel-header">
+        <div class="panel-dot" style="background:#7dbf99"></div>
+        <span class="panel-label">Generated CV — ATS Optimised</span>
+      </div>
+      <div class="cv-body" id="cvBody"></div>
+
+      <!-- Filename badge -->
+      <div class="filename-badge" id="filenameBadge">
+        <span style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Saving as</span>
+        <span class="filename-tag" id="filenameTag">—</span>
+      </div>
+
+      <!-- Download section -->
+      <div class="download-section">
+        <div class="download-label">Download as</div>
+        <div class="download-buttons">
+          <button class="btn btn-green" id="btnTxt" onclick="downloadFile('txt')" disabled>
+            📋 Plain Text
+            <span style="font-size:9px;opacity:.7">.txt</span>
+          </button>
+          <button class="btn btn-blue" id="btnDocx" onclick="downloadFile('docx')" disabled>
+            📄 Word Document
+            <span style="font-size:9px;opacity:.7">.docx</span>
+          </button>
+          <button class="btn btn-rose" id="btnPdf" onclick="downloadFile('pdf')" disabled>
+            🖨 Print / Save PDF
+            <span style="font-size:9px;opacity:.7">.pdf</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- Cover Letter Output -->
+    <div class="panel output-panel" id="coverLetterPanel">
+      <div class="panel-header">
+        <div class="panel-dot" style="background:#c9a0dc"></div>
+        <span class="panel-label">Generated Cover Letter</span>
+      </div>
+      <div class="letter-body" id="letterBody"></div>
+      <div class="download-section">
+        <div class="download-label">Download as</div>
+        <div class="download-buttons">
+          <button class="btn btn-green" id="btnClTxt" onclick="downloadCoverLetter('txt')" disabled>
+            📋 Plain Text
+            <span style="font-size:9px;opacity:.7">.txt</span>
+          </button>
+          <button class="btn btn-blue" id="btnClDocx" onclick="downloadCoverLetter('docx')" disabled>
+            📄 Word Document
+            <span style="font-size:9px;opacity:.7">.docx</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tips">
+    <strong>Which format to use?</strong><br>
+    <strong>ATS portal</strong> (LinkedIn, Indeed, company website) → use <strong>.txt</strong> — paste directly or upload<br>
+    <strong>Email to recruiter</strong> → use <strong>.docx</strong> or open the PDF option and print to PDF<br>
+    <strong>Startup / direct apply</strong> → use <strong>.pdf</strong> for a polished look<br><br>
+    Files are named automatically: <span class="shortcut">YourName_JobTitle_Company_Date</span> 🌸
+  </div>
+</div>
+
+<script>
+let generatedText = '';
+let generatedLetter = '';
+let currentFilename = 'CV';
+
+async function generate() {
+  const jobPosting = document.getElementById('jobInput').value.trim();
+  if (!jobPosting) { setStatus('Please paste a job posting first.'); return; }
+
+  setLoading(true);
+  setStatus('Analysing job posting and generating your tailored CV…');
+  document.getElementById('outputPanel').classList.remove('visible');
+
+  try {
+    const res = await fetch('/api/generate', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({jobPosting})
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+
+    generatedText   = data.cvText;
+    currentFilename = data.filename || 'JunizaMagana_CV';
+
+    renderCV(data.cvText);
+    renderAnalysis(data.matched, data.missing, data.score);
+
+    // Show filename badge
+    document.getElementById('filenameTag').textContent = currentFilename;
+    document.getElementById('filenameBadge').classList.add('visible');
+
+    // Enable buttons
+    ['btnTxt','btnDocx','btnPdf'].forEach(id => document.getElementById(id).disabled = false);
+    document.getElementById('coverLetterBtn').disabled = false;
+
+    document.getElementById('outputPanel').classList.add('visible');
+    setStatus('Done! Download your CV below — choose the right format for how you\'re applying. 🌸');
+    setTimeout(() => document.getElementById('outputPanel').scrollIntoView({behavior:'smooth',block:'start'}), 100);
+
+  } catch(err) {
+    setStatus('Error: ' + err.message);
+  }
+  setLoading(false);
+}
+
+async function downloadFile(type) {
+  const btn = document.getElementById('btn' + type.charAt(0).toUpperCase() + type.slice(1));
+  const origText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Preparing…';
+
+  try {
+    const res = await fetch(`/api/download/${type}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({cvText: generatedText, filename: currentFilename})
+    });
+
+    if (type === 'pdf') {
+      // PDF: open in new tab so user can print/save as PDF
+      const html = await res.text();
+      const blob = new Blob([html], {type:'text/html'});
+      const url  = URL.createObjectURL(blob);
+      const win  = window.open(url,'_blank');
+      if (win) {
+        setTimeout(() => win.print(), 800);
+      }
+    } else {
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = currentFilename + '.' + type;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    btn.innerHTML = '✓ Done!';
+    setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 2000);
+
+  } catch(err) {
+    btn.innerHTML = '✗ Error';
+    setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 2000);
+  }
+}
+
+function renderCV(text) {
+  const lines = text.split('\n');
+  const out = document.getElementById('cvBody');
+  let html = '', lineIdx = 0, inExp = false;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim(); lineIdx++;
+    if (!line) { html += '<div style="height:5px"></div>'; continue; }
+    const e = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    if (lineIdx<=4 && /^[A-Z][a-z]+ [A-Z][a-z]+/.test(line) && !line.includes(':') && line.length<40)
+      html += `<div class="cv-name">${e(line)}</div>`;
+    else if ((line.includes('@')||line.includes('|')) && lineIdx<8)
+      html += `<div class="cv-contact">${e(line)}</div>`;
+    else if (/^(PROFESSIONAL SUMMARY|EXPERIENCE|SKILLS|EDUCATION|CORE COMPETENCIES|LANGUAGES)/i.test(line)) {
+      html += `<div class="cv-section">${e(line)}</div>`; inExp=/EXPERIENCE/i.test(line);
+    }
+    else if (/^[-–•*]/.test(line))
+      html += `<div class="cv-bullet">${e(line.replace(/^[-–•*]\s*/,''))}</div>`;
+    else if (/^\d+\./.test(line))
+      html += `<div class="cv-job-title" style="margin-top:18px">${e(line.replace(/^\d+\.\s*/,''))}</div>`;
+    else if (/^[A-Za-z &\/]+:\s/.test(line) && !/^\d{4}/.test(line)) {
+      const col=line.indexOf(':');
+      html += `<div class="cv-skill-row"><strong>${e(line.slice(0,col))}:</strong> ${e(line.slice(col+1).trim())}</div>`;
+    }
+    else if (/\d{4}/.test(line) && line.length<120 && inExp)
+      html += `<div class="cv-meta">${e(line)}</div>`;
+    else if (inExp && /^[A-Z]/.test(line) && line.length<90 && !line.endsWith('.'))
+      html += `<div class="cv-job-title">${e(line)}</div>`;
+    else
+      html += `<div style="font-size:12px;color:var(--text2);margin-bottom:3px;font-weight:300">${e(line)}</div>`;
+  }
+  out.innerHTML = html;
+}
+
+function renderAnalysis(matched, missing, score) {
+  document.getElementById('analysisBox').innerHTML = `
+    <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:10px">Keyword Analysis</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.85;font-weight:300">
+      <span style="color:var(--green);font-weight:500">${matched.length} keywords matched</span> from the job posting.<br>
+      <span style="color:var(--red);font-weight:500">${missing.length} keywords missing</span> — honest gaps in your background.<br><br>
+      <span style="font-style:italic">Green = in your CV &nbsp;·&nbsp; Red = not in your background</span>
+    </div>`;
+
+  const ca = document.getElementById('chipsArea');
+  ca.style.display = 'flex';
+  const e = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let h = '<div class="chips-title">Keywords</div>';
+  matched.forEach(k => h += `<span class="chip chip-matched">${e(k)}</span>`);
+  missing.forEach(k => h += `<span class="chip chip-missing">${e(k)}</span>`);
+  ca.innerHTML = h;
+
+  document.getElementById('scoreRow').style.display = 'flex';
+  document.getElementById('scoreNum').textContent = score + '%';
+  setTimeout(() => document.getElementById('scoreBar').style.width = score + '%', 120);
+}
+
+async function generateCoverLetter() {
+  const jobPosting = document.getElementById('jobInput').value.trim();
+  if (!jobPosting) { setStatus('Please paste a job posting first.'); return; }
+
+  setCoverLetterLoading(true);
+  setStatus('Writing your cover letter…');
+  document.getElementById('coverLetterPanel').classList.remove('visible');
+
+  try {
+    const res = await fetch('/api/generate-cover-letter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobPosting, cvText: generatedText })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+
+    generatedLetter = data.letterText;
+    document.getElementById('letterBody').textContent = data.letterText;
+    ['btnClTxt', 'btnClDocx'].forEach(id => document.getElementById(id).disabled = false);
+
+    document.getElementById('coverLetterPanel').classList.add('visible');
+    setStatus('Cover letter ready! Download it below. 🌸');
+    setTimeout(() => document.getElementById('coverLetterPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+  } catch (err) {
+    setStatus('Error: ' + err.message);
+  }
+  setCoverLetterLoading(false);
+}
+
+async function downloadCoverLetter(type) {
+  const btn = document.getElementById('btnCl' + type.charAt(0).toUpperCase() + type.slice(1));
+  const origText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Preparing…';
+
+  try {
+    const res = await fetch(`/api/download/cover-letter/${type}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ letterText: generatedLetter, filename: currentFilename })
+    });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = currentFilename + '_CoverLetter.' + type;
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.innerHTML = '✓ Done!';
+    setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 2000);
+  } catch (err) {
+    btn.innerHTML = '✗ Error';
+    setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 2000);
+  }
+}
+
+function setLoading(on) {
+  document.getElementById('generateBtn').disabled = on;
+  document.getElementById('spinner').style.display = on ? 'block' : 'none';
+  document.getElementById('btnLabel').textContent = on ? 'Generating…' : 'Generate CV';
+}
+function setCoverLetterLoading(on) {
+  document.getElementById('coverLetterBtn').disabled = on;
+  document.getElementById('clSpinner').style.display = on ? 'block' : 'none';
+  document.getElementById('clBtnLabel').textContent = on ? 'Writing…' : '+ Cover Letter';
+}
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+document.addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey) && e.key==='Enter') generate(); });
+</script>
+</body>
+</html>

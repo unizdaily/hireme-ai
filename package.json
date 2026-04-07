@@ -1,0 +1,16 @@
+{
+  "name": "hireme-ai",
+  "version": "1.0.0",
+  "description": "ATS CV Generator — Juniza Magana",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "docx": "^9.6.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0"
+  }
+}

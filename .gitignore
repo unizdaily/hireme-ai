@@ -1,0 +1,5 @@
+node_modules/
+.env
+*.log
+tmp_cv.html
+.DS_Store
