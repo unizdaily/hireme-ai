@@ -23,11 +23,17 @@ CONTACT: City, Country | +xx xxx xxx xxxx | email@example.com | linkedin.com/in/
 
 CURRENT TITLE: Your Current or Target Job Title
 
+PROJECTS:
+
+Project Name — Short Description (Personal Project / Deployed at Company)
+   Stack: tech1, tech2, tech3
+   - Key achievement or feature
+   - Key achievement or feature
+
 EXPERIENCE:
 
 1. Job Title — Company Name, Location
    Month Year – Month Year | Full-time / Part-time / Contract
-   - Key achievement with measurable result (e.g. reduced processing time by 40%)
    - Key achievement with measurable result
    - Key achievement with measurable result
 
@@ -40,8 +46,12 @@ EDUCATION:
 - Degree Name, Field of Study — Institution Name, Location | Year – Year
 
 SKILLS:
-Category 1: skill1, skill2, skill3
-Category 2: skill1, skill2, skill3
+Automation & AI: tool1, tool2, tool3
+Programming: language1, language2, language3
+Frontend: framework1, framework2
+Databases & ORM: db1, db2
+Data & Analytics: tool1, tool2
+Tools & Ops: tool1, tool2, tool3
 
 LANGUAGES: English (Fluent), Language2 (Level), Language3 (Level)
 
@@ -50,11 +60,12 @@ GUARDRAILS FOR CV GENERATION:
 - All achievements must be truthful — only reframe real experience, never inflate
 - Keep bullet points as achievements, not duties
 - Use standard sentence case for all prose; only section headers should be uppercase
+- NEVER add horizontal divider lines or separator characters between sections
 `;
 
 // ── Smart filename generator ──────────────────────────────────────────────
-// Format: YourName_JobTitle_Company_Date (name is extracted from the CV)
-function smartFilename(cvText, jobPosting, aiJobTitle = '', aiCompany = '') {
+// Format: JunizaMagana_JobTitle_Company_Date
+function smartFilename(_cvText, jobPosting, aiJobTitle = '', aiCompany = '') {
   // Clean strings for filename: TitleCase_Words, max 30 chars
   const clean = (s) => s
     .replace(/[^a-zA-Z0-9\s]/g, '')
@@ -93,15 +104,11 @@ function smartFilename(cvText, jobPosting, aiJobTitle = '', aiCompany = '') {
     }
   }
 
-  // Extract name from first line of CV
-  const firstLine = cvText.split('\n').find(l => l.trim().length > 0) || '';
-  const nameClean = clean(firstLine.trim()) || 'CV';
-
   const date        = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const titleClean  = clean(jobTitle)  || 'Application';
   const companyClean = clean(company)  || 'Company';
 
-  return `${nameClean}_${titleClean}_${companyClean}_${date}`;
+  return `JunizaMagana_${titleClean}_${companyClean}_${date}`;
 }
 
 // ── Build DOCX from plain text CV ─────────────────────────────────────────
@@ -113,7 +120,7 @@ async function buildDocx(cvText) {
 
   function sectionHeader(title) {
     return new Paragraph({
-      spacing: { before: 280, after: 80 },
+      spacing: { before: 160, after: 60 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: ACCENT, space: 4 } },
       children: [new TextRun({ text: title.toUpperCase(), bold: true, size: 22, color: ACCENT, font: 'Arial' })]
     });
@@ -126,13 +133,15 @@ async function buildDocx(cvText) {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     lineIdx++;
-    if (!line) { children.push(new Paragraph({ spacing: { before: 0, after: 60 }, children: [] })); continue; }
+    if (!line) { children.push(new Paragraph({ spacing: { before: 0, after: 20 }, children: [] })); continue; }
+    // Strip separator lines like "– --" or "---"
+    if (/^[\s\-–—─━═=_~*|]+$/.test(line)) continue;
 
     // Name
     if (lineIdx <= 4 && /^[A-Z][a-z]+ [A-Z][a-z]+/.test(line) && !line.includes(':') && line.length < 40) {
       children.push(new Paragraph({
         spacing: { before: 0, after: 60 },
-        children: [new TextRun({ text: line, bold: true, size: 96, color: DARK, font: 'Arial' })]
+        children: [new TextRun({ text: line, bold: true, size: 120, color: DARK, font: 'Arial' })]
       }));
     }
     // Contact
@@ -143,8 +152,8 @@ async function buildDocx(cvText) {
       }));
     }
     // Section headers
-    else if (/^(PROFESSIONAL SUMMARY|EXPERIENCE|SKILLS|EDUCATION|CORE COMPETENCIES|LANGUAGES)(?!\s*:)/i.test(line)) {
-      children.push(sectionHeader(line));
+    else if (/^(PROFESSIONAL SUMMARY|EXPERIENCE|PROJECTS|SKILLS|EDUCATION|CORE COMPETENCIES|LANGUAGES):?\s*$/i.test(line)) {
+      children.push(sectionHeader(line.replace(/:$/, '')));
     }
     // Bullets
     else if (/^[-–•*]/.test(line)) {
@@ -157,15 +166,15 @@ async function buildDocx(cvText) {
     // Numbered job entries
     else if (/^\d+\./.test(line)) {
       children.push(new Paragraph({
-        spacing: { before: 180, after: 0 },
+        spacing: { before: 100, after: 0 },
         children: [new TextRun({ text: line.replace(/^\d+\.\s*/, ''), bold: true, size: 23, color: DARK, font: 'Arial' })]
       }));
     }
-    // Skill rows Label: value
-    else if (/^[A-Za-z &\/]+:\s/.test(line) && !/^\d{4}/.test(line)) {
+    // Skill rows Label: value (exclude Stack: lines)
+    else if (/^[A-Za-z &\/]+:\s/.test(line) && !/^\d{4}/.test(line) && !/^Stack:/i.test(line)) {
       const col = line.indexOf(':');
       children.push(new Paragraph({
-        spacing: { before: 60, after: 60 },
+        spacing: { before: 30, after: 30 },
         children: [
           new TextRun({ text: line.slice(0, col) + ': ', bold: true, size: 20, color: DARK, font: 'Arial' }),
           new TextRun({ text: line.slice(col + 1).trim(), size: 20, color: MID, font: 'Arial' })
@@ -225,34 +234,40 @@ function buildPdfHtml(cvText) {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     lineIdx++;
-    if (!line) { html += '<div style="height:6px"></div>'; continue; }
+    if (!line) { html += '<div style="height:1px"></div>'; continue; }
+    // Strip separator lines like "– --" or "---"
+    if (/^[\s\-–—─━═=_~*|]+$/.test(line)) continue;
+
+    // Strip decorative separator characters anywhere in the line
+    const cleaned = line.replace(/[─━═]{3,}/g, '').trim();
+    if (!cleaned) continue;
 
     const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-    if (lineIdx <= 4 && /^[A-Z][a-z]+ [A-Z][a-z]+/.test(line) && !line.includes(':') && line.length < 40) {
-      html += `<div style="font-family:Arial;font-size:52px;font-weight:bold;color:#111827;margin-bottom:6px">${esc(line)}</div>`;
-    } else if ((line.includes('@') || line.includes('|')) && lineIdx < 8) {
-      html += `<div style="font-family:Arial;font-size:11px;color:#6B7280;margin-bottom:4px">${esc(line)}</div>`;
-    } else if (/^(PROFESSIONAL SUMMARY|EXPERIENCE|SKILLS|EDUCATION|CORE COMPETENCIES|LANGUAGES)(?!\s*:)/i.test(line)) {
-      html += `<div style="font-family:Arial;font-size:10px;font-weight:bold;color:#2563EB;letter-spacing:2px;text-transform:uppercase;border-bottom:2px solid #2563EB;padding-bottom:3px;margin:20px 0 8px">${esc(line)}</div>`;
-    } else if (/^[-–•*]/.test(line)) {
-      html += `<div style="font-family:Arial;font-size:11px;color:#374151;padding-left:14px;position:relative;margin-bottom:3px">– ${esc(line.replace(/^[-–•*]\s*/,''))}</div>`;
-    } else if (/^\d+\./.test(line)) {
-      html += `<div style="font-family:Arial;font-size:12px;font-weight:bold;color:#111827;margin-top:12px">${esc(line.replace(/^\d+\.\s*/,''))}</div>`;
-    } else if (/^[A-Za-z &\/]+:\s/.test(line) && !/^\d{4}/.test(line)) {
-      const col = line.indexOf(':');
-      html += `<div style="font-family:Arial;font-size:11px;color:#374151;margin-bottom:4px"><strong>${esc(line.slice(0,col))}:</strong> ${esc(line.slice(col+1).trim())}</div>`;
-    } else if (/\d{4}/.test(line) && line.length < 120) {
-      html += `<div style="font-family:Arial;font-size:10px;color:#6B7280;margin-bottom:4px">${esc(line)}</div>`;
+    if (lineIdx <= 4 && /^[A-Z][a-z]+ [A-Z][a-z]+/.test(cleaned) && !cleaned.includes(':') && cleaned.length < 40) {
+      html += `<div style="font-family:Arial;font-size:32px;font-weight:bold;color:#111827;margin-bottom:2px;line-height:1.1">${esc(cleaned)}</div>`;
+    } else if ((cleaned.includes('@') || cleaned.includes('|')) && lineIdx < 8) {
+      html += `<div style="font-family:Arial;font-size:9px;color:#6B7280;margin-bottom:2px;line-height:1.3">${esc(cleaned)}</div>`;
+    } else if (/^(PROFESSIONAL SUMMARY|EXPERIENCE|PROJECTS|SKILLS|EDUCATION|CORE COMPETENCIES|LANGUAGES):?\s*$/i.test(cleaned)) {
+      html += `<div style="font-family:Arial;font-size:9px;font-weight:bold;color:#2563EB;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1.5px solid #2563EB;padding-bottom:2px;margin:8px 0 4px">${esc(cleaned.replace(/:$/, ''))}</div>`;
+    } else if (/^[-–•*]/.test(cleaned)) {
+      html += `<div style="font-family:Arial;font-size:9.5px;color:#374151;padding-left:10px;margin-bottom:1px;line-height:1.4">– ${esc(cleaned.replace(/^[-–•*]\s*/,''))}</div>`;
+    } else if (/^\d+\./.test(cleaned)) {
+      html += `<div style="font-family:Arial;font-size:10px;font-weight:bold;color:#111827;margin-top:6px;margin-bottom:0;line-height:1.3">${esc(cleaned.replace(/^\d+\.\s*/,''))}</div>`;
+    } else if (/^[A-Za-z &\/]+:\s/.test(cleaned) && !/^\d{4}/.test(cleaned) && !/^Stack:/i.test(cleaned)) {
+      const col = cleaned.indexOf(':');
+      html += `<div style="font-family:Arial;font-size:9.5px;color:#374151;margin-bottom:2px;line-height:1.4"><strong>${esc(cleaned.slice(0,col))}:</strong> ${esc(cleaned.slice(col+1).trim())}</div>`;
+    } else if (/\d{4}/.test(cleaned) && cleaned.length < 120) {
+      html += `<div style="font-family:Arial;font-size:9px;color:#6B7280;margin-bottom:1px;line-height:1.3">${esc(cleaned)}</div>`;
     } else {
-      html += `<div style="font-family:Arial;font-size:11px;color:#374151;margin-bottom:3px">${esc(line)}</div>`;
+      html += `<div style="font-family:Arial;font-size:9.5px;color:#374151;margin-bottom:1px;line-height:1.4">${esc(cleaned)}</div>`;
     }
   }
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-  body { margin: 40px 50px; background: white; }
-  @page { margin: 20mm; }
+  body { margin: 0; padding: 14px 18px; background: white; font-size: 9.5px; line-height: 1.4; }
+  @page { size: A4; margin: 10mm 12mm; }
 </style></head><body>${html}</body></html>`;
 }
 
@@ -262,9 +277,9 @@ app.post('/api/generate', async (req, res) => {
   if (!jobPosting?.trim()) return res.status(400).json({ error: 'Job posting is required.' });
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set in .env file.' });
 
-  const prompt = `You are an expert ATS resume optimisation specialist. Generate a fully tailored, ATS-proof CV based on the profile below.
+  const prompt = `You are an expert ATS resume optimisation specialist. Generate a fully tailored, ATS-proof CV for Juniza Magana.
 
-CANDIDATE PROFILE:
+JUNIZA'S PROFILE:
 ${BASE_PROFILE}
 
 JOB POSTING:
@@ -277,11 +292,19 @@ INSTRUCTIONS:
    - Has a tailored Professional Summary (3-4 sentences) mirroring the job's language
    - Uses strong action verbs (Built, Engineered, Automated, Designed, Delivered)
    - Makes every bullet an achievement, not a duty
-   - Writes the summary to make the hiring manager think "we need this person"
+   - Positions Juniza as rare: someone who understands business AND builds tools
+   - Frames the career pivot as a strength — 10 years operations + AI/automation skills is rare
+   - Write the summary to make the hiring manager think "we need this person"
    - Keeps all facts truthful — only reframe existing experience, never invent
    - Uses ATS-safe formatting (no tables, no columns, plain text)
+   - NEVER add horizontal divider lines or separator characters (─, —, --, ===) between sections — section headers already have a visual separator
    - Includes measurable results (numbers, %, time saved)
-   - Section headers: PROFESSIONAL SUMMARY / EXPERIENCE / SKILLS / EDUCATION
+   - TARGET LENGTH: 2 pages maximum — keep bullets tight (1 line each where possible), max 3 bullets per role for older/less relevant roles, max 4-5 for recent roles, Professional Summary max 3 sentences
+   - NEVER omit any role or job from the experience — all 5 roles must appear; compress bullets to fit, do not remove entire positions
+   - Tailor bullets across ALL roles to the job posting keywords, not just the most recent role — weave relevant keywords into government and freelance roles too where they honestly apply
+   - Section headers: PROFESSIONAL SUMMARY / EXPERIENCE / PROJECTS / SKILLS / EDUCATION / LANGUAGES
+   - LANGUAGES must be its own standalone section header on a separate line, followed by bullet points for each language — NEVER write "Languages: English..." inline under SKILLS
+   - Format languages as: – English (Fluent)  – Spanish (Intermediate — actively learning)  – Filipino/Tagalog (Native)
 3. Also extract the job title and company name for the filename.
 4. Provide: MATCHED_KEYWORDS, MISSING_KEYWORDS, ATS_SCORE, JOB_TITLE, COMPANY_NAME
 
@@ -470,14 +493,9 @@ app.post('/api/generate-cover-letter', async (req, res) => {
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Extract name and contact from the first two lines of BASE_PROFILE for the letter header
-  const profileLines = BASE_PROFILE.trim().split('\n').filter(l => l.trim());
-  const profileName    = (profileLines[0]?.replace(/^NAME:\s*/i, '') || 'Your Name').trim();
-  const profileContact = (profileLines[1]?.replace(/^CONTACT:\s*/i, '') || '').trim();
+  const prompt = `You are an expert cover letter writer. Write a compelling, personalised cover letter for Juniza Magana.
 
-  const prompt = `You are an expert cover letter writer. Write a compelling, personalised cover letter based on the profile below.
-
-CANDIDATE PROFILE:
+JUNIZA'S PROFILE:
 ${BASE_PROFILE}
 
 ${cvText ? `TAILORED CV (already generated for this role):\n${cvText}\n` : ''}
@@ -487,7 +505,7 @@ ${jobPosting}
 
 INSTRUCTIONS:
 - Write a professional cover letter, 3–4 short paragraphs
-- Opening: hook the reader — connect the candidate's unique value to this specific role
+- Opening: hook the reader — connect Juniza's unique value to this specific role
 - Middle: highlight 2–3 concrete achievements most relevant to this job (use numbers/impact from the profile)
 - Closing: express genuine enthusiasm, invite next steps, confident but not pushy
 - Tone: warm, direct, confident — not stiff corporate language
@@ -498,8 +516,8 @@ INSTRUCTIONS:
 FORMAT EXACTLY:
 
 ---LETTER_START---
-${profileName}
-${profileContact}
+Juniza Magana
+Barcelona, Spain | +34 634 222 785 | va.junizamagana@gmail.com
 
 ${today}
 
@@ -508,7 +526,7 @@ Dear Hiring Team,
 [Letter body]
 
 Sincerely,
-${profileName}
+Juniza Magana
 ---LETTER_END---`;
 
   try {
