@@ -15,52 +15,47 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Base profile ──────────────────────────────────────────────────────────
-// Replace this with your own details. The more complete your profile,
-// the better the AI can tailor your CV to each job posting.
+// Replace the content below with your own profile details.
+// See README.md for the full format guide.
 const BASE_PROFILE = `
 NAME: Your Full Name
-CONTACT: City, Country | +xx xxx xxx xxxx | email@example.com | linkedin.com/in/yourprofile | github.com/yourusername
+CONTACT: City, Country | phone | email | linkedin | github
 
-CURRENT TITLE: Your Current or Target Job Title
+CURRENT TITLE: Your current or target job title
+
+SUMMARY: Write 2-3 sentences about your background, what you build or do, and what makes you valuable. Be specific.
 
 PROJECTS:
 
-Project Name — Short Description (Personal Project / Deployed at Company)
-   Stack: tech1, tech2, tech3
-   - Key achievement or feature
-   - Key achievement or feature
+Project Name — Brief description (Personal / Deployed)
+   Stack: tool1, tool2, tool3
+   - Achievement with impact
+   - Achievement with impact
 
 EXPERIENCE:
 
 1. Job Title — Company Name, Location
-   Month Year – Month Year | Full-time / Part-time / Contract
-   - Key achievement with measurable result
-   - Key achievement with measurable result
+   Start – End | Full-time / Part-time
+   - Achievement with numbers
+   - Achievement with numbers
 
-2. Job Title — Company Name, Location
-   Month Year – Month Year | Full-time
-   - Key achievement with measurable result
-   - Key achievement with measurable result
+2. Previous Job Title — Company Name, Location
+   Start – End | Full-time
+   - Achievement with numbers
 
 EDUCATION:
-- Degree Name, Field of Study — Institution Name, Location | Year – Year
+- Degree, Field — Institution | Year
 
 SKILLS:
-Automation & AI: tool1, tool2, tool3
-Programming: language1, language2, language3
-Frontend: framework1, framework2
-Databases & ORM: db1, db2
-Data & Analytics: tool1, tool2
-Tools & Ops: tool1, tool2, tool3
+Category: tool1, tool2, tool3
+Category: tool1, tool2, tool3
 
-LANGUAGES: English (Fluent), Language2 (Level), Language3 (Level)
+LANGUAGES:
+- Language (Level)
 
 GUARDRAILS FOR CV GENERATION:
-- Only use tools, skills, and experience listed above — never invent anything
-- All achievements must be truthful — only reframe real experience, never inflate
-- Keep bullet points as achievements, not duties
-- Use standard sentence case for all prose; only section headers should be uppercase
-- NEVER add horizontal divider lines or separator characters between sections
+- All tools and achievements are real — never inflate or invent anything
+- Keep bullets as achievements, not duties
 `;
 
 // ── Smart filename generator ──────────────────────────────────────────────
@@ -108,7 +103,8 @@ function smartFilename(_cvText, jobPosting, aiJobTitle = '', aiCompany = '') {
   const titleClean  = clean(jobTitle)  || 'Application';
   const companyClean = clean(company)  || 'Company';
 
-  return `JunizaMagana_${titleClean}_${companyClean}_${date}`;
+  // Update "YourName" below to match your own name
+  return `YourName_${titleClean}_${companyClean}_${date}`;
 }
 
 // ── Build DOCX from plain text CV ─────────────────────────────────────────
@@ -298,13 +294,14 @@ INSTRUCTIONS:
    - Keeps all facts truthful — only reframe existing experience, never invent
    - Uses ATS-safe formatting (no tables, no columns, plain text)
    - NEVER add horizontal divider lines or separator characters (─, —, --, ===) between sections — section headers already have a visual separator
+   - NEVER use "-" or "–" as bullet markers — use "•" for ALL bullet points throughout the CV
    - Includes measurable results (numbers, %, time saved)
    - TARGET LENGTH: 2 pages maximum — keep bullets tight (1 line each where possible), max 3 bullets per role for older/less relevant roles, max 4-5 for recent roles, Professional Summary max 3 sentences
    - NEVER omit any role or job from the experience — all 5 roles must appear; compress bullets to fit, do not remove entire positions
    - Tailor bullets across ALL roles to the job posting keywords, not just the most recent role — weave relevant keywords into government and freelance roles too where they honestly apply
    - Section headers: PROFESSIONAL SUMMARY / EXPERIENCE / PROJECTS / SKILLS / EDUCATION / LANGUAGES
    - LANGUAGES must be its own standalone section header on a separate line, followed by bullet points for each language — NEVER write "Languages: English..." inline under SKILLS
-   - Format languages as: – English (Fluent)  – Spanish (Intermediate — actively learning)  – Filipino/Tagalog (Native)
+   - Format languages as: • English (Fluent)  • Spanish (Intermediate — actively learning)  • Filipino/Tagalog (Native)
 3. Also extract the job title and company name for the filename.
 4. Provide: MATCHED_KEYWORDS, MISSING_KEYWORDS, ATS_SCORE, JOB_TITLE, COMPANY_NAME
 
@@ -512,6 +509,7 @@ INSTRUCTIONS:
 - Mirror keywords naturally from the job posting
 - Keep it under 350 words
 - NEVER invent achievements, tools, or experience not in the profile
+- Write in flowing paragraphs only — NO bullet points, NO "-" or "–" markers, NO dashes at the start of any line
 
 FORMAT EXACTLY:
 
@@ -587,6 +585,170 @@ app.post('/api/download/cover-letter/txt', (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
   res.send(letterText);
+});
+
+// ── API: Boost CV with selected keywords ─────────────────────────────────
+app.post('/api/boost', async (req, res) => {
+  const { cvText, jobPosting, selectedKeywords, originalScore, originalMatched } = req.body;
+  if (!cvText || !selectedKeywords?.length) return res.status(400).json({ error: 'Missing required fields.' });
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set in .env file.' });
+
+  const prompt = `You are an expert ATS resume specialist. A candidate's CV has been tailored to a job posting but is still missing some keywords. Integrate the selected keywords into the CV.
+
+CANDIDATE PROFILE:
+${BASE_PROFILE}
+
+CURRENT TAILORED CV:
+${cvText}
+
+JOB POSTING:
+${jobPosting}
+
+KEYWORDS TO INTEGRATE: ${selectedKeywords.join(', ')}
+
+CURRENT ATS STATE:
+- Current score: ${originalScore || '?'}%
+- Already matched: ${originalMatched ? originalMatched.join(', ') : 'see CV'}
+
+INSTRUCTIONS:
+- Weave the selected keywords naturally into existing bullets or the Professional Summary where they genuinely apply to Juniza's real background
+- Do NOT invent new experience, tools, or achievements not in the profile
+- Only skip a keyword if it truly cannot fit anywhere honestly — otherwise integrate it
+- Maintain all formatting conventions: same section headers, no separator lines
+- Use "•" for ALL bullet points — NEVER use "-" or "–" as bullet markers
+- Keep the same overall structure and target length (2 pages max)
+- NEVER add horizontal divider lines or separator characters (─, —, --, ===)
+- After integrating, re-score the CV: the new ATS_SCORE must be higher than ${originalScore || 0}% because keywords have been added — count every keyword from the job posting that now appears in the CV
+
+FORMAT EXACTLY:
+
+---CV_START---
+[Full updated CV]
+---CV_END---
+
+---ANALYSIS_START---
+MATCHED_KEYWORDS: keyword1, keyword2
+MISSING_KEYWORDS: keyword1, keyword2
+ATS_SCORE: 85
+JOB_TITLE: Operations Analyst
+COMPANY_NAME: Acme Corp
+---ANALYSIS_END---`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(500).json({ error: 'Anthropic API error: ' + err });
+    }
+
+    const data = await response.json();
+    const raw = data.content.map(b => b.text || '').join('');
+
+    const cvMatch = raw.match(/---CV_START---([\s\S]*?)---CV_END---/);
+    const newCvText = cvMatch ? cvMatch[1].trim() : cvText;
+
+    const aMatch = raw.match(/---ANALYSIS_START---([\s\S]*?)---ANALYSIS_END---/);
+    let matched = [], missing = [], score = 75, jobTitle = '', companyName = '';
+    if (aMatch) {
+      const a = aMatch[1];
+      const m1 = a.match(/MATCHED_KEYWORDS:\s*(.+)/);
+      const m2 = a.match(/MISSING_KEYWORDS:\s*(.+)/);
+      const m3 = a.match(/ATS_SCORE:\s*(\d+)/);
+      const m4 = a.match(/JOB_TITLE:\s*(.+)/);
+      const m5 = a.match(/COMPANY_NAME:\s*(.+)/);
+      matched     = m1 ? m1[1].split(',').map(s=>s.trim()).filter(Boolean) : [];
+      missing     = m2 ? m2[1].split(',').map(s=>s.trim()).filter(Boolean) : [];
+      score       = m3 ? parseInt(m3[1]) : 75;
+      jobTitle    = m4 ? m4[1].trim() : '';
+      companyName = m5 ? m5[1].trim() : '';
+    }
+
+    res.json({ cvText: newCvText, matched, missing, score });
+
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API: Generate Recruiter Message ──────────────────────────────────────
+app.post('/api/generate-message', async (req, res) => {
+  const { jobPosting, cvText, recruiterName } = req.body;
+  if (!jobPosting?.trim()) return res.status(400).json({ error: 'Job posting is required.' });
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set in .env file.' });
+
+  const prompt = `Write a short, warm outreach message from Juniza Magana to a recruiter or hiring contact about a job opportunity. This should work as both a LinkedIn message and an email.
+
+JUNIZA'S PROFILE:
+${BASE_PROFILE}
+
+${cvText ? `TAILORED CV FOR THIS ROLE:\n${cvText}\n` : ''}
+
+JOB POSTING:
+${jobPosting}
+
+${recruiterName ? `RECRUITER/CONTACT NAME: ${recruiterName}` : ''}
+
+INSTRUCTIONS:
+- Write an extremely concise message — strictly under 300 characters total (including spaces and punctuation)
+- Tone: warm, direct, confident — not salesy or desperate
+- 1–2 sentences max: a specific hook + one concrete achievement relevant to this role
+- End with a single short call to action (e.g. "Happy to connect!" or "Would love to chat.")
+- ${recruiterName ? `Address them by name: "${recruiterName}"` : 'Use "Hi" or "Hello" as a greeting — do not invent a name'}
+- Write in plain sentences only — NO bullet points, NO "-" or "–" at the start of any line, NO special characters
+- Do NOT use filler phrases like "I hope this message finds you well" or "I am reaching out to express my interest"
+- Do NOT invent experience not in the profile
+- Write it ready to send — no placeholders, no brackets
+
+FORMAT EXACTLY:
+---MSG_START---
+[Message]
+---MSG_END---`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 150,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(500).json({ error: 'Anthropic API error: ' + err });
+    }
+
+    const data = await response.json();
+    const raw = data.content.map(b => b.text || '').join('');
+    const match = raw.match(/---MSG_START---([\s\S]*?)---MSG_END---/);
+    const messageText = match ? match[1].trim() : raw.trim();
+
+    res.json({ messageText });
+
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => {

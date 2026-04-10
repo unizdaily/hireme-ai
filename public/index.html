@@ -104,7 +104,10 @@
   .chips-title { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--dim); width:100%; margin-bottom:6px; }
   .chip { font-size:10px; font-weight:500; padding:3px 12px; border-radius:20px; font-family:'Jost',sans-serif; }
   .chip-matched { background:var(--green-bg); color:var(--green); border:1px solid rgba(125,191,153,.35); }
-  .chip-missing { background:var(--red-bg); color:var(--red); border:1px solid rgba(224,122,138,.3); }
+  .chip-missing { background:var(--red-bg); color:var(--red); border:1px solid rgba(224,122,138,.3); cursor:pointer; transition:all .15s; }
+  .chip-missing:hover { background:rgba(224,122,138,.18); }
+  .chip-missing.selected { background:var(--red); color:white; border-color:var(--red); }
+  .msg-body { padding:28px 32px; font-family:'Jost',sans-serif; font-size:13px; line-height:1.9; color:var(--text); white-space:pre-wrap; font-weight:300; }
 
   /* output */
   .output-panel { grid-column:1/-1; display:none; animation:fadeUp .5s ease both; }
@@ -141,9 +144,9 @@
 <div class="petal"></div><div class="petal"></div><div class="petal"></div><div class="petal"></div>
 <div class="wrap">
   <header>
-    <div class="monogram">J</div>
+    <div class="monogram">H</div>
     <h1>Hire<em>Me.ai</em></h1>
-    <p>ATS CV Generator — Juniza Magana</p>
+    <p>ATS CV Generator — Powered by Claude</p>
     <div><span class="tag">AI Powered</span></div>
   </header>
 
@@ -163,6 +166,10 @@
         <button class="btn btn-rose" id="coverLetterBtn" onclick="generateCoverLetter()" disabled>
           <div class="spinner" id="clSpinner"></div>
           <span id="clBtnLabel">+ Cover Letter</span>
+        </button>
+        <button class="btn btn-blue" id="msgBtn" onclick="generateMessage()" disabled>
+          <div class="spinner" id="msgSpinner"></div>
+          <span id="msgBtnLabel">✉ Message Recruiter</span>
         </button>
         <button class="btn btn-ghost" onclick="document.getElementById('jobInput').value=''">Clear</button>
       </div>
@@ -242,6 +249,25 @@
         </div>
       </div>
     </div>
+    <!-- Recruiter Message Panel -->
+    <div class="panel output-panel" id="messagePanel">
+      <div class="panel-header" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="panel-dot" style="background:#5b8dee"></div>
+          <span class="panel-label">Recruiter Message</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="text" id="recruiterName" placeholder="Recruiter name (optional)" style="font-family:'Jost',sans-serif;font-size:11px;border:1.5px solid var(--border);border-radius:20px;padding:5px 14px;outline:none;color:var(--text);background:white;width:200px">
+          <button class="btn btn-ghost" onclick="generateMessage()" style="font-size:10px;padding:7px 16px;letter-spacing:1px">Regenerate</button>
+        </div>
+      </div>
+      <div class="msg-body" id="msgBody"></div>
+      <div class="download-section">
+        <div class="download-buttons">
+          <button class="btn btn-blue" id="copyMsgBtn" onclick="copyMessage()">📋 Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="tips">
@@ -249,14 +275,18 @@
     <strong>ATS portal</strong> (LinkedIn, Indeed, company website) → use <strong>.txt</strong> — paste directly or upload<br>
     <strong>Email to recruiter</strong> → use <strong>.docx</strong> or open the PDF option and print to PDF<br>
     <strong>Startup / direct apply</strong> → use <strong>.pdf</strong> for a polished look<br><br>
-    Files are named automatically: <span class="shortcut">JunizaMagana_JobTitle_Company_Date</span> 🌸
+    Files are named automatically: <span class="shortcut">YourName_JobTitle_Company_Date</span> 🌸
   </div>
 </div>
 
 <script>
 let generatedText = '';
 let generatedLetter = '';
-let currentFilename = 'JunizaMagana_CV';
+let generatedMessage = '';
+let currentFilename = 'YourName_CV';
+let selectedKeywords = new Set();
+let currentScore = 0;
+let currentMatched = [];
 
 async function generate() {
   const jobPosting = document.getElementById('jobInput').value.trim();
@@ -288,6 +318,7 @@ async function generate() {
     // Enable buttons
     ['btnTxt','btnDocx','btnPdf'].forEach(id => document.getElementById(id).disabled = false);
     document.getElementById('coverLetterBtn').disabled = false;
+    document.getElementById('msgBtn').disabled = false;
 
     document.getElementById('outputPanel').classList.add('visible');
     setStatus('Done! Download your CV below — choose the right format for how you\'re applying. 🌸');
@@ -378,20 +409,31 @@ function renderCV(text) {
 }
 
 function renderAnalysis(matched, missing, score) {
+  selectedKeywords.clear();
+  currentScore = score;
+  currentMatched = matched;
+
   document.getElementById('analysisBox').innerHTML = `
     <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:10px">Keyword Analysis</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.85;font-weight:300">
       <span style="color:var(--green);font-weight:500">${matched.length} keywords matched</span> from the job posting.<br>
-      <span style="color:var(--red);font-weight:500">${missing.length} keywords missing</span> — honest gaps in your background.<br><br>
-      <span style="font-style:italic">Green = in your CV &nbsp;·&nbsp; Red = not in your background</span>
+      <span style="color:var(--red);font-weight:500">${missing.length} keywords missing</span> — click red chips to select and boost your score.<br><br>
+      <span style="font-style:italic">Green = in your CV &nbsp;·&nbsp; Red = click to select for boosting</span>
     </div>`;
 
   const ca = document.getElementById('chipsArea');
   ca.style.display = 'flex';
   const e = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  let h = '<div class="chips-title">Keywords</div>';
+  let h = '<div class="chips-title">Keywords — click red to boost</div>';
   matched.forEach(k => h += `<span class="chip chip-matched">${e(k)}</span>`);
-  missing.forEach(k => h += `<span class="chip chip-missing">${e(k)}</span>`);
+  missing.forEach(k => h += `<span class="chip chip-missing" data-kw="${e(k)}" onclick="toggleKeyword(this)">${e(k)}</span>`);
+  h += `<div id="boostRow" style="width:100%;margin-top:10px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
+    <button class="btn btn-primary" id="boostBtn" onclick="boostCV()" style="font-size:11px;padding:8px 20px;letter-spacing:1px">
+      <div class="spinner" id="boostSpinner"></div>
+      <span id="boostLabel">✨ Boost CV</span>
+    </button>
+    <span id="boostCount" style="font-size:11px;color:var(--muted);font-style:italic"></span>
+  </div>`;
   ca.innerHTML = h;
 
   document.getElementById('scoreRow').style.display = 'flex';
@@ -455,6 +497,107 @@ async function downloadCoverLetter(type) {
     btn.innerHTML = '✗ Error';
     setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 2000);
   }
+}
+
+function toggleKeyword(el) {
+  const kw = el.dataset.kw;
+  if (selectedKeywords.has(kw)) {
+    selectedKeywords.delete(kw);
+    el.classList.remove('selected');
+  } else {
+    selectedKeywords.add(kw);
+    el.classList.add('selected');
+  }
+  const boostRow = document.getElementById('boostRow');
+  const boostCount = document.getElementById('boostCount');
+  if (!boostRow) return;
+  if (selectedKeywords.size > 0) {
+    boostRow.style.display = 'flex';
+    boostCount.textContent = `${selectedKeywords.size} keyword${selectedKeywords.size > 1 ? 's' : ''} selected`;
+  } else {
+    boostRow.style.display = 'none';
+  }
+}
+
+async function boostCV() {
+  if (!generatedText || selectedKeywords.size === 0) return;
+  const jobPosting = document.getElementById('jobInput').value.trim();
+
+  const btn = document.getElementById('boostBtn');
+  btn.disabled = true;
+  document.getElementById('boostSpinner').style.display = 'block';
+  document.getElementById('boostLabel').textContent = 'Boosting…';
+  setStatus(`Boosting CV with ${selectedKeywords.size} selected keyword${selectedKeywords.size > 1 ? 's' : ''}…`);
+
+  try {
+    const res = await fetch('/api/boost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cvText: generatedText, jobPosting, selectedKeywords: [...selectedKeywords], originalScore: currentScore, originalMatched: currentMatched })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+
+    generatedText = data.cvText;
+    renderCV(data.cvText);
+    renderAnalysis(data.matched, data.missing, data.score);
+    setStatus(`CV boosted! ATS score updated to ${data.score}%. 🌸`);
+
+  } catch (err) {
+    setStatus('Error: ' + err.message);
+    const btn2 = document.getElementById('boostBtn');
+    if (btn2) {
+      btn2.disabled = false;
+      document.getElementById('boostSpinner').style.display = 'none';
+      document.getElementById('boostLabel').textContent = '✨ Boost CV';
+    }
+  }
+}
+
+async function generateMessage() {
+  const jobPosting = document.getElementById('jobInput').value.trim();
+  if (!jobPosting) { setStatus('Please paste a job posting first.'); return; }
+
+  const recruiterName = document.getElementById('recruiterName')?.value.trim() || '';
+
+  document.getElementById('msgBtn').disabled = true;
+  document.getElementById('msgSpinner').style.display = 'block';
+  document.getElementById('msgBtnLabel').textContent = 'Writing…';
+  setStatus('Writing your recruiter message…');
+  document.getElementById('messagePanel').classList.remove('visible');
+
+  try {
+    const res = await fetch('/api/generate-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobPosting, cvText: generatedText, recruiterName })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+
+    generatedMessage = data.messageText;
+    document.getElementById('msgBody').textContent = data.messageText;
+    document.getElementById('copyMsgBtn').textContent = '📋 Copy to Clipboard';
+    document.getElementById('messagePanel').classList.add('visible');
+    setStatus('Recruiter message ready — copy and send! 🌸');
+    setTimeout(() => document.getElementById('messagePanel').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+  } catch (err) {
+    setStatus('Error: ' + err.message);
+  }
+
+  document.getElementById('msgBtn').disabled = false;
+  document.getElementById('msgSpinner').style.display = 'none';
+  document.getElementById('msgBtnLabel').textContent = '✉ Message Recruiter';
+}
+
+function copyMessage() {
+  if (!generatedMessage) return;
+  navigator.clipboard.writeText(generatedMessage).then(() => {
+    const btn = document.getElementById('copyMsgBtn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy to Clipboard'; }, 2000);
+  });
 }
 
 function setLoading(on) {
